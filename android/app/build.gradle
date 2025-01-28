@@ -11,10 +11,8 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    buildToolsVersion "30.0.0"
-    
     namespace = "com.swahilib"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 34
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -23,7 +21,7 @@ android {
     }
 
     kotlinOptions {
-        jvmTarget = 17
+        jvmTarget = JavaVersion.VERSION_1_8
     }
 
     defaultConfig {
@@ -33,7 +31,7 @@ android {
         compileSdkVersion 34
         multiDexEnabled true
         versionCode 2
-        versionName "1.0.0.1" 
+        versionName "1.0.0.2" 
     }
 
     signingConfigs {

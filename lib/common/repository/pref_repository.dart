@@ -2,14 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:injectable/injectable.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../data/models/word.dart';
 import '../utils/constants/pref_constants.dart';
 
 @singleton
-abstract class LocalStorage {
+abstract class PrefRepository {
   @factoryMethod
-  factory LocalStorage(SharedPreferences localStorage) = LocalStorageImp;
+  factory PrefRepository(SharedPreferences prefRepo) = PrefRepositoryImp;
 
   ThemeMode getThemeMode();
+
+  List<Word>? words = [];
 
   Future<void> updateThemeMode(ThemeMode themeMode);
 
@@ -26,10 +29,10 @@ abstract class LocalStorage {
   bool keyExists(String settingsKey);
 }
 
-class LocalStorageImp implements LocalStorage {
+class PrefRepositoryImp implements PrefRepository {
   final SharedPreferences sharedPrefs;
 
-  LocalStorageImp(this.sharedPrefs);
+  PrefRepositoryImp(this.sharedPrefs);
 
   @override
   Future<void> updateThemeMode(ThemeMode themeMode) async {
@@ -110,4 +113,7 @@ class LocalStorageImp implements LocalStorage {
     }
     sharedPrefs.setString(settingsKey, settingsValue);
   }
+
+  @override
+  List<Word>? words = [];
 }

@@ -1,15 +1,28 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:textstyle_extensions/textstyle_extensions.dart';
 
 import '../../../common/data/models/models.dart';
-import '../../../common/utils/constants/app_assets.dart';
+import '../../../common/repository/pref_repository.dart';
+import '../../../common/utils/constants/app_constants.dart';
+import '../../../common/utils/constants/pref_constants.dart';
+import '../../../common/widgets/action/list_items.dart';
+import '../../../common/widgets/general/labels.dart';
 import '../../../common/widgets/progress/general_progress.dart';
 import '../../../common/widgets/progress/skeleton.dart';
-import '../../../core/navigator/route_names.dart';
+import '../../../core/di/injectable.dart';
+import '../../../core/theme/theme_colors.dart';
+import '../../../core/theme/theme_fonts.dart';
 import '../bloc/home_bloc.dart';
 
-//part 'widgets/sessions_preview.dart';
-//part 'widgets/speakers_carousel.dart';
+part 'widgets/views/home_appbar.dart';
+part 'widgets/views/home_body.dart';
+part 'widgets/lists/words_lists.dart';
+part 'widgets/lists/idioms_list.dart';
+part 'widgets/lists/sayings_list.dart';
+part 'widgets/lists/proverbs_list.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -19,10 +32,33 @@ class HomeScreen extends StatefulWidget {
 }
 
 class HomeScreenState extends State<HomeScreen> {
-  List<Idiom> idioms = [];
-  List<Proverb> proverbs = [];
-  List<Saying> sayings = [];
-  List<Word> words = [];
+  Timer? _syncTimer;
+  bool periodicSyncStarted = false;
+
+  late HomeBloc _bloc;
+  final _prefRepo = getIt<PrefRepository>();
+
+  List<Word> words = [], filteredWords = [];
+  List<Idiom> idioms = [], filteredIdioms = [];
+  List<Saying> sayings = [], filteredSayings = [];
+  List<Proverb> proverbs = [], filteredProverbs = [];
+
+  int selectedPage = 0, selectedBook = 0;
+
+  @override
+  void dispose() {
+    _syncTimer?.cancel();
+    super.dispose();
+  }
+
+  void startPeriodicSync() {
+    periodicSyncStarted = true;
+    bool wordsLoaded = _prefRepo.getPrefBool(PrefConstants.wordsAreLoadedKey);
+
+    _syncTimer = Timer.periodic(const Duration(minutes: 5), (_) async {
+      if (wordsLoaded) _bloc.add(const FetchData());
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,22 +66,28 @@ class HomeScreenState extends State<HomeScreen> {
       create: (context) => HomeBloc()..add(const FetchData()),
       child: BlocConsumer<HomeBloc, HomeState>(
         listener: (context, state) {
+          _bloc = context.read<HomeBloc>();
           if (state is HomeFetchedDataState) {
             idioms = state.idioms;
             proverbs = state.proverbs;
             sayings = state.sayings;
             words = state.words;
+
+            if (!periodicSyncStarted) {
+              _bloc.add(const FetchData());
+              startPeriodicSync();
+            }
           }
         },
         builder: (context, state) {
           var appBar = AppBar(
-            title: GestureDetector(
-              child: Image.asset(AppAssets.appIcon, height: 50),
-              onTap: () => Navigator.pushNamed(context, RouteNames.settings),
-            ),
+            centerTitle: true,
+            title: Text(AppConstants.appTitle,
+                style: TextStyles.headingStyle1.bold.size(25)),
           );
+
           var emptyState = EmptyState(
-            title: 'Sorry nothing to show here at the moment.',
+            title: 'Samahani hamna chochote hapa',
             showRetry: true,
             onRetry: () => context.read<HomeBloc>().add(const FetchData()),
           );
@@ -55,15 +97,8 @@ class HomeScreenState extends State<HomeScreen> {
             progress: () => const Scaffold(body: SkeletonLoading()),
             failure: (feedback) => Scaffold(appBar: appBar, body: emptyState),
             fetched: (idioms, proverbs, sayings, words) => Scaffold(
-              appBar: appBar,
-              body: const SingleChildScrollView(
-                child: Column(
-                  children: <Widget>[
-                    //SpeakersCarousel(parent: this),
-                    //SessionsPreview(parent: this),
-                  ],
-                ),
-              ),
+              appBar: HomeAppBar(parent: this),
+              body: HomeBody(parent: this),
             ),
           );
         },

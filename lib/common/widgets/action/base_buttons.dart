@@ -279,10 +279,10 @@ class IconTextBtn extends StatelessWidget {
   final Function()? onPressed;
 
   const IconTextBtn({
-    Key? key,
+    super.key,
     required this.title,
     required this.onPressed,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -293,7 +293,7 @@ class IconTextBtn extends StatelessWidget {
         decoration: BoxDecoration(
           color: Theme.of(context).brightness == Brightness.light
               ? ThemeColors.primary
-              : ThemeColors.kPrimaryDeepRed,
+              : ThemeColors.kPrimaryDeepBlue,
           borderRadius: const BorderRadius.all(
             Radius.circular(5),
           ),

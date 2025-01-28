@@ -1,14 +1,11 @@
-import 'dart:convert';
-
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../common/data/models/models.dart';
 import '../../../common/repository/db/database_repository.dart';
-import '../../../common/utils/app_util.dart';
-import '../../../common/utils/constants/api_constants.dart';
+import '../../../common/repository/pref_repository.dart';
 import '../../../common/utils/constants/pref_constants.dart';
-import '../../../common/repository/local_storage.dart';
 import '../../../core/di/injectable.dart';
 import '../domain/data_init_repository.dart';
 
@@ -23,8 +20,8 @@ class DataInitBloc extends Bloc<DataInitEvent, DataInitState> {
     on<SaveData>(_onSaveData);
   }
 
-  final _dataInitRepo = DataInitRepository();
-  final _localStorage = getIt<LocalStorage>();
+  final _dataRepo = DataInitRepository(Supabase.instance.client);
+  final _prefRepo = getIt<PrefRepository>();
   final _dbRepo = getIt<DatabaseRepository>();
 
   void _onFetchData(
@@ -37,17 +34,11 @@ class DataInitBloc extends Bloc<DataInitEvent, DataInitState> {
     List<Word> words = [];
     emit(const DataInitProgressState());
 
-    try {
-      var idiomsResp = await _dataInitRepo.getData(ApiConstants.idioms);
-      if (idiomsResp.statusCode == 200) {
-        List<dynamic> dataList = List<Map<String, dynamic>>.from(
-          jsonDecode(idiomsResp.body),
-        );
-        idioms = dataList.map((item) => Idiom.fromJson(item)).toList();
-      }
-    } catch (e) {
-      logger('Unable to fetch idioms');
-    }
+    idioms = await _dataRepo.fetchIdioms();
+    proverbs = await _dataRepo.fetchProverbs();
+    sayings = await _dataRepo.fetchSayings();
+    words = await _dataRepo.fetchWords();
+
     emit(DataInitFetchedState(idioms, proverbs, sayings, words));
   }
 
@@ -55,9 +46,37 @@ class DataInitBloc extends Bloc<DataInitEvent, DataInitState> {
     SaveData event,
     Emitter<DataInitState> emit,
   ) async {
-    emit(const DataInitProgressState());
+    emit(const DataInitSavingState("Salia kwenye skrini hii, usiondoke!"));
+    _dbRepo.saveWords(event.words);
 
-    _localStorage.setPrefBool(PrefConstants.dataIsLoadedKey, true);
+    await Future<void>.delayed(const Duration(seconds: 3));
+
+    emit(const DataInitSavingState("Inapakia nahau (idioms) 527 ..."));
+    await _dbRepo.saveIdioms(event.idioms);
+
+    emit(const DataInitSavingState("Inapakia methali (proverbs) 382 ..."));
+    await _dbRepo.saveProverbs(event.proverbs);
+
+    emit(const DataInitSavingState("Inapakia misemo (sayings) 276..."));
+    await _dbRepo.saveSayings(event.sayings);
+
+    emit(const DataInitSavingState("Inapakia maneno (words) 16,641..."));
+
+    Map<String, List<Word>> groupedWords = {};
+
+    for (var word in event.words) {
+      String firstLetter = word.title![0].toUpperCase();
+      if (!groupedWords.containsKey(firstLetter)) {
+        groupedWords[firstLetter] = [];
+      }
+      if (groupedWords[firstLetter]!.length < 10) {
+        groupedWords[firstLetter]!.add(word);
+      }
+    }
+
+    _prefRepo.words = groupedWords.values.expand((list) => list).toList();
+    await Future<void>.delayed(const Duration(seconds: 10));
+    _prefRepo.setPrefBool(PrefConstants.dataIsLoadedKey, true);
 
     emit(const DataInitSavedState());
   }
